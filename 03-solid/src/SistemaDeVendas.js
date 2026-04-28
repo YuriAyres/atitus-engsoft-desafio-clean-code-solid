@@ -1,15 +1,29 @@
-class SistemaDeVendas {
-  async processarVenda(pedido) {
-    if (!pedido.itens || pedido.itens.length === 0) throw new Error("Pedido sem itens");
-    
-    let total = 0;
-    for (const item of pedido.itens) total += item.preco * item.quantidade;
-    if (total > 1000) total *= 0.9;
+const Pedido = require("./Pedido");
+const VendasRepository = require("./VendasRepository");
+const NotificadorService = require("./NotificadorService");
 
-    console.log(`Salvando pedido ${pedido.id}...`);
-    console.log(`Enviando e-mail para ${pedido.clienteEmail}...`);
-    
-    return { ...pedido, total, status: "pago" };
+class SistemaDeVendas {
+  constructor({ repository, notificador } = {}) {
+    this.repository = repository || new VendasRepository();
+    this.notificador = notificador || new NotificadorService();
+  }
+
+  async processarVenda(pedidoDados) {
+    const pedido = new Pedido(pedidoDados);
+
+    pedido.validar();
+    const total = pedido.calcularTotal();
+
+    const pedidoFinal = {
+      ...pedidoDados,
+      total,
+      status: "pago"
+    };
+
+    await this.repository.salvar(pedidoFinal);
+    await this.notificador.enviarConfirmacao(pedidoFinal.clienteEmail);
+
+    return pedidoFinal;
   }
 }
 
